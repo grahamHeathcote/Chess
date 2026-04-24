@@ -7,9 +7,6 @@ using InteractiveUtils
 # ╔═╡ b9fc60d4-3fdc-11f1-ac5b-4d732f649e8c
 using Chess
 
-# ╔═╡ ddb1f985-3dc9-4b76-a145-7f59de687eb8
-b = startboard()
-
 # ╔═╡ c113a475-d645-4273-8866-eddd1a7b0b1d
 function Shannon(b :: Board)
 	# Bot evaluates this to see +/- for white given whos move is next
@@ -19,8 +16,15 @@ function Shannon(b :: Board)
 	s += 3 * (squarecount(pieces(b, PIECE_WB)) - squarecount(pieces(b, PIECE_BB)))
 	s += 3 * (squarecount(pieces(b, PIECE_WK)) - squarecount(pieces(b, PIECE_BK)))
 	s += 3 * (squarecount(pieces(b, PIECE_WP)) - squarecount(pieces(b, PIECE_BP)))
-	if sidetomove(b) == BLACK s = -s end
-	if ischeckmate(b) == true s -= 200 end
+	if sidetomove(b) == BLACK
+		s = -s
+		# Can only be checkmate if MY move, i.e I lost.
+		# Thus if checkmate and black, punish.
+		if ischeckmate(b) == true s += 200 end
+	else
+		if ischeckmate(b) == true s += 200 end
+	end 
+	
 	s += .1 * (movecount(b))
 	info = donullmove!(b)
 	s -= .1 * (movecount(b))
@@ -28,21 +32,63 @@ function Shannon(b :: Board)
 	return s
 end
 
-# ╔═╡ 1cf651bb-0f96-46d0-9f72-1691458cc838
-Shannon(b)
-
 # ╔═╡ 98995b6a-cc8e-4183-97ad-981bc62270ee
-function minMax(b :: Board)
-	for myMove in moves(b)
-		bNew = domove(b, myMove)
-		val = Shannon(bNew)
-		print(val)
-		println()
+function minMax(b :: Board, isMaxTurn :: Bool, depth :: Int)
+	if depth == 0 || ischeckmate(b) return Shannon(b) end
+	if isMaxTurn
+		bestVal = -Inf
+		for myMove in moves(b)
+			val = minMax(domove(b, myMove), !isMaxTurn, depth-1)
+			bestVal = max(bestVal, val)
+		end
+		return bestVal
+	else
+		bestVal = Inf
+		for myMove in moves(b)
+			val = minMax(domove(b, myMove), !isMaxTurn, depth-1)
+			bestVal = min(bestVal, val)
+		end
+		return bestVal
 	end
 end
 
-# ╔═╡ b8cc9314-3f51-4640-ac12-2771153a2129
-minMax(b)
+# ╔═╡ 020704a4-9a38-476b-9a8e-67f99f48dcbd
+function generateMove(b)
+	bestMove = missing
+	if sidetomove(b) == WHITE	
+		bestVal = -Inf
+		for move in moves(b)
+			val = minMax(domove(b, move), true, 3)
+			if val > bestVal
+				bestVal = val
+				bestMove = move
+			end
+		end
+	else
+		bestVal = Inf
+		for move in moves(b)
+			val = minMax(domove(b, move), false, 3)
+			if val < bestVal
+				bestVal = val
+				bestMove = move
+			end
+		end
+	end
+	return bestMove
+end
+
+# ╔═╡ 2001e23a-2e63-4cc1-bd2d-435ebc364bc0
+function runGame()
+    g = SimpleGame()
+    while !isterminal(g)
+		@info board(g)
+		move=generateMove(board(g))
+		domove!(g, move);
+	end
+end
+
+# ╔═╡ 64cba1e4-9c61-4181-a64a-79243bb07efc
+runGame()
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -424,10 +470,10 @@ version = "5.15.0+0"
 
 # ╔═╡ Cell order:
 # ╠═b9fc60d4-3fdc-11f1-ac5b-4d732f649e8c
-# ╠═ddb1f985-3dc9-4b76-a145-7f59de687eb8
-# ╠═1cf651bb-0f96-46d0-9f72-1691458cc838
 # ╠═c113a475-d645-4273-8866-eddd1a7b0b1d
 # ╠═98995b6a-cc8e-4183-97ad-981bc62270ee
-# ╠═b8cc9314-3f51-4640-ac12-2771153a2129
+# ╠═020704a4-9a38-476b-9a8e-67f99f48dcbd
+# ╠═2001e23a-2e63-4cc1-bd2d-435ebc364bc0
+# ╠═64cba1e4-9c61-4181-a64a-79243bb07efc
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
