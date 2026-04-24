@@ -7,6 +7,43 @@ using InteractiveUtils
 # ╔═╡ b9fc60d4-3fdc-11f1-ac5b-4d732f649e8c
 using Chess
 
+# ╔═╡ ddb1f985-3dc9-4b76-a145-7f59de687eb8
+b = startboard()
+
+# ╔═╡ c113a475-d645-4273-8866-eddd1a7b0b1d
+function Shannon(b :: Board)
+	# Bot evaluates this to see +/- for white given whos move is next
+	# White is + Black is -
+	s = 9 * (squarecount(pieces(b, PIECE_WQ)) - squarecount(pieces(b, PIECE_BQ)))
+	s += 5 * (squarecount(pieces(b, PIECE_WR)) - squarecount(pieces(b, PIECE_BR)))
+	s += 3 * (squarecount(pieces(b, PIECE_WB)) - squarecount(pieces(b, PIECE_BB)))
+	s += 3 * (squarecount(pieces(b, PIECE_WK)) - squarecount(pieces(b, PIECE_BK)))
+	s += 3 * (squarecount(pieces(b, PIECE_WP)) - squarecount(pieces(b, PIECE_BP)))
+	if sidetomove(b) == BLACK s = -s end
+	if ischeckmate(b) == true s -= 200 end
+	s += .1 * (movecount(b))
+	info = donullmove!(b)
+	s -= .1 * (movecount(b))
+	undomove!(b, info)
+	return s
+end
+
+# ╔═╡ 1cf651bb-0f96-46d0-9f72-1691458cc838
+Shannon(b)
+
+# ╔═╡ 98995b6a-cc8e-4183-97ad-981bc62270ee
+function minMax(b :: Board)
+	for myMove in moves(b)
+		bNew = domove(b, myMove)
+		val = Shannon(bNew)
+		print(val)
+		println()
+	end
+end
+
+# ╔═╡ b8cc9314-3f51-4640-ac12-2771153a2129
+minMax(b)
+
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
@@ -387,5 +424,10 @@ version = "5.15.0+0"
 
 # ╔═╡ Cell order:
 # ╠═b9fc60d4-3fdc-11f1-ac5b-4d732f649e8c
+# ╠═ddb1f985-3dc9-4b76-a145-7f59de687eb8
+# ╠═1cf651bb-0f96-46d0-9f72-1691458cc838
+# ╠═c113a475-d645-4273-8866-eddd1a7b0b1d
+# ╠═98995b6a-cc8e-4183-97ad-981bc62270ee
+# ╠═b8cc9314-3f51-4640-ac12-2771153a2129
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
