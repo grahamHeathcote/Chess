@@ -58,7 +58,7 @@ function generateMove(b)
 	if sidetomove(b) == WHITE	
 		bestVal = -Inf
 		for move in moves(b)
-			val = minMax(domove(b, move), true, 3)
+			val = minMax(domove(b, move), true, 4)
 			if val > bestVal
 				bestVal = val
 				bestMove = move
@@ -67,7 +67,7 @@ function generateMove(b)
 	else
 		bestVal = Inf
 		for move in moves(b)
-			val = minMax(domove(b, move), false, 3)
+			val = minMax(domove(b, move), false, 4)
 			if val < bestVal
 				bestVal = val
 				bestMove = move
