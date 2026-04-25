@@ -26,61 +26,44 @@ function Shannon(b :: Board)
 	else
 		if ischeckmate(b) == true s += 200 end
 	end 
-	
-	s += .01 * (movecount(b))
+
+	if isstalemate(b) return 0 end	
+	s += .1 * (movecount(b))
 	info = donullmove!(b)
-	s -= .01 * (movecount(b))
+	s -= .1 * (movecount(b))
 	undomove!(b, info)
 	return s
 end
 
 # ╔═╡ 98995b6a-cc8e-4183-97ad-981bc62270ee
-function minMax(b :: Board, isMaxTurn :: Bool, depth :: Int, a, β)
+function minMax(b, root, depth, a, β)
+	if root bestMove = missing end
 	if depth == 0 || ischeckmate(b) return Shannon(b) end
-	if isMaxTurn
+	if sidetomove(b) == WHITE
 		bestVal = -Inf
-		for myMove in moves(b)
-			val = minMax(domove(b, myMove), !isMaxTurn, depth-1, a, β)
-			bestVal = max(bestVal, val)
-			a = max(a, val)
+		for move in moves(b)
+			val = minMax(domove(b, move), false, depth-1, a, β)
+			if val > bestVal
+				bestVal = val
+				if root bestMove = move end
+			end
+			a = min(a, val)
 			if β < a break end
 		end
-		return bestVal
 	else
 		bestVal = Inf
-		for myMove in moves(b)
-			val = minMax(domove(b, myMove), !isMaxTurn, depth-1, a, β)
-			bestVal = min(bestVal, val)
+		for move in moves(b)
+			val = minMax(domove(b, move), false, depth-1, a, β)
+			if val < bestVal
+				bestVal = val
+				if root bestMove = move end
+			end
 			β = min(β, val)
 			if β < a break end
 		end
-		return bestVal
 	end
-end
-
-# ╔═╡ 020704a4-9a38-476b-9a8e-67f99f48dcbd
-function generateMove(b)
-	bestMove = missing
-	if sidetomove(b) == WHITE	
-		bestVal = -Inf
-		for move in moves(b)
-			val = minMax(domove(b, move), false, 5, -Inf, Inf)
-			if val > bestVal
-				bestVal = val
-				bestMove = move
-			end
-		end
-	else
-		bestVal = Inf
-		for move in moves(b)
-			val = minMax(domove(b, move), true, 5, -Inf, Inf)
-			if val < bestVal
-				bestVal = val
-				bestMove = move
-			end
-		end
-	end
-	return bestMove
+	if root return bestMove end
+	return bestVal
 end
 
 # ╔═╡ 2001e23a-2e63-4cc1-bd2d-435ebc364bc0
@@ -88,13 +71,17 @@ function runGame()
     g = SimpleGame()
     while !isterminal(g)
 		@info board(g)
-		move=generateMove(board(g))
+		move=minMax(board(g), true, 4, -Inf, Inf)
 		domove!(g, move);
 	end
+	@info g
 end
 
 # ╔═╡ 64cba1e4-9c61-4181-a64a-79243bb07efc
 runGame()
+
+# ╔═╡ c47972bc-356f-43d0-8d7b-424381a4db8f
+
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -479,8 +466,8 @@ version = "5.15.0+0"
 # ╠═bc6a4cac-1560-4bc0-b778-ca6daf7da63d
 # ╠═c113a475-d645-4273-8866-eddd1a7b0b1d
 # ╠═98995b6a-cc8e-4183-97ad-981bc62270ee
-# ╠═020704a4-9a38-476b-9a8e-67f99f48dcbd
 # ╠═2001e23a-2e63-4cc1-bd2d-435ebc364bc0
 # ╠═64cba1e4-9c61-4181-a64a-79243bb07efc
+# ╠═c47972bc-356f-43d0-8d7b-424381a4db8f
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
