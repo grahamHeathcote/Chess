@@ -7,6 +7,9 @@ using InteractiveUtils
 # ╔═╡ b9fc60d4-3fdc-11f1-ac5b-4d732f649e8c
 using Chess
 
+# ╔═╡ bc6a4cac-1560-4bc0-b778-ca6daf7da63d
+
+
 # ╔═╡ c113a475-d645-4273-8866-eddd1a7b0b1d
 function Shannon(b :: Board)
 	# Bot evaluates this to see +/- for white given whos move is next
@@ -15,38 +18,41 @@ function Shannon(b :: Board)
 	s += 5 * (squarecount(pieces(b, PIECE_WR)) - squarecount(pieces(b, PIECE_BR)))
 	s += 3 * (squarecount(pieces(b, PIECE_WB)) - squarecount(pieces(b, PIECE_BB)))
 	s += 3 * (squarecount(pieces(b, PIECE_WK)) - squarecount(pieces(b, PIECE_BK)))
-	s += 3 * (squarecount(pieces(b, PIECE_WP)) - squarecount(pieces(b, PIECE_BP)))
-	if sidetomove(b) == BLACK
-		s = -s
+	s += 1 * (squarecount(pieces(b, PIECE_WP)) - squarecount(pieces(b, PIECE_BP)))
+	if sidetomove(b) == WHITE
 		# Can only be checkmate if MY move, i.e I lost.
-		# Thus if checkmate and black, punish.
-		if ischeckmate(b) == true s += 200 end
+		# Thus if checkmate and I am white, then make white bad.
+		if ischeckmate(b) == true s -= 200 end
 	else
 		if ischeckmate(b) == true s += 200 end
 	end 
 	
-	s += .1 * (movecount(b))
+	s += .01 * (movecount(b))
 	info = donullmove!(b)
-	s -= .1 * (movecount(b))
+	s -= .01 * (movecount(b))
 	undomove!(b, info)
 	return s
 end
 
 # ╔═╡ 98995b6a-cc8e-4183-97ad-981bc62270ee
-function minMax(b :: Board, isMaxTurn :: Bool, depth :: Int)
+function minMax(b :: Board, isMaxTurn :: Bool, depth :: Int, a, β)
 	if depth == 0 || ischeckmate(b) return Shannon(b) end
 	if isMaxTurn
 		bestVal = -Inf
 		for myMove in moves(b)
-			val = minMax(domove(b, myMove), !isMaxTurn, depth-1)
+			val = minMax(domove(b, myMove), !isMaxTurn, depth-1, a, β)
 			bestVal = max(bestVal, val)
+			a = max(a, val)
+			if β < a break end
 		end
 		return bestVal
 	else
 		bestVal = Inf
 		for myMove in moves(b)
-			val = minMax(domove(b, myMove), !isMaxTurn, depth-1)
+			val = minMax(domove(b, myMove), !isMaxTurn, depth-1, a, β)
 			bestVal = min(bestVal, val)
+			β = min(β, val)
+			if β < a break end
 		end
 		return bestVal
 	end
@@ -58,7 +64,7 @@ function generateMove(b)
 	if sidetomove(b) == WHITE	
 		bestVal = -Inf
 		for move in moves(b)
-			val = minMax(domove(b, move), true, 4)
+			val = minMax(domove(b, move), false, 5, -Inf, Inf)
 			if val > bestVal
 				bestVal = val
 				bestMove = move
@@ -67,7 +73,7 @@ function generateMove(b)
 	else
 		bestVal = Inf
 		for move in moves(b)
-			val = minMax(domove(b, move), false, 4)
+			val = minMax(domove(b, move), true, 5, -Inf, Inf)
 			if val < bestVal
 				bestVal = val
 				bestMove = move
@@ -470,6 +476,7 @@ version = "5.15.0+0"
 
 # ╔═╡ Cell order:
 # ╠═b9fc60d4-3fdc-11f1-ac5b-4d732f649e8c
+# ╠═bc6a4cac-1560-4bc0-b778-ca6daf7da63d
 # ╠═c113a475-d645-4273-8866-eddd1a7b0b1d
 # ╠═98995b6a-cc8e-4183-97ad-981bc62270ee
 # ╠═020704a4-9a38-476b-9a8e-67f99f48dcbd
