@@ -86,11 +86,10 @@ function runGameSF()
 	setoption(sf, "UCI_Elo", 1400)
     while !isterminal(g)
 		@info board(g)
+		if isterminal(g) break end
 		move=minMax(board(g), true, 4, -Inf, Inf)
 		domove!(g, move);
-
 		if isterminal(g) break end
-		
 		setboard(sf, g)
 		domove!(g, search(sf, "go depth 12").bestmove);		
 	end
