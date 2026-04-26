@@ -11,7 +11,7 @@ using Chess
 using Chess.UCI
 
 # ╔═╡ c113a475-d645-4273-8866-eddd1a7b0b1d
-function Shannon(b :: Board)
+function Shannon(b :: Board) :: Float32
 	# Bot evaluates this to see +/- for white given whos move is next
 	# White is + Black is -
 	s = 9 * (squarecount(pieces(b, PIECE_WQ)) - squarecount(pieces(b, PIECE_BQ)))
@@ -28,6 +28,8 @@ function Shannon(b :: Board)
 	end 
 
 	if isstalemate(b) return 0 end	
+	# This is wrong maybe
+	# If i just made a move then punish if he has many possible moves
 	s += .1 * (movecount(b))
 	info = donullmove!(b)
 	s -= .1 * (movecount(b))
@@ -35,35 +37,57 @@ function Shannon(b :: Board)
 	return s
 end
 
+# ╔═╡ 940bb174-2ab3-463a-b97e-495cfe668ddc
+function orderMoves(b, moves, tt)
+	bs = fill(b, moves.count)
+	new_boards = fen.(domove.(bs, moves))
+	if !all(haskey.(Ref(tt), new_boards)) return moves end
+	sort!(new_boards, by=new_boards -> getindex.(Ref(tt), new_boards), rev=true)
+end
+
 # ╔═╡ 98995b6a-cc8e-4183-97ad-981bc62270ee
-function minMax(b, root, depth, a, β)
+function minMax(b, root, depth, α, β, tt)
 	if root bestMove = missing end
 	if depth == 0 || ischeckmate(b) return Shannon(b) end
+	orderedMoves = orderMoves(b, moves(b), tt)
 	if sidetomove(b) == WHITE
 		bestVal = -Inf
-		for move in moves(b)
-			val = minMax(domove(b, move), false, depth-1, a, β)
+		for move in orderedMoves
+			val = minMax(domove(b, move), false, depth-1, α, β, tt)
 			if val > bestVal
 				bestVal = val
 				if root bestMove = move end
 			end
-			a = min(a, val)
-			if β < a break end
+			α[] = min(α[], val)
+			if β[] < α[] break end
 		end
 	else
 		bestVal = Inf
-		for move in moves(b)
-			val = minMax(domove(b, move), false, depth-1, a, β)
+		for move in reverse(orderedMoves)
+			val = minMax(domove(b, move), false, depth-1, α, β, tt)
 			if val < bestVal
 				bestVal = val
 				if root bestMove = move end
 			end
-			β = min(β, val)
-			if β < a break end
+			β[] = min(β[], val)
+			if β[] < α[] break end
 		end
 	end
+	# tt[fen(b)] = bestVal
 	if root return bestMove end
 	return bestVal
+end
+
+# ╔═╡ 475b3acf-e9b9-401c-a1db-0cf2e7089cc1
+function nextMove(b, depth)
+	α = Ref(-Inf)
+	β = Ref(Inf)
+	tt = Dict{String, Float32}()
+	bestMove = missing
+	for i in 1:depth
+		bestMove = minMax(b, true, i, α, β, tt)
+	end
+	return bestMove
 end
 
 # ╔═╡ 2001e23a-2e63-4cc1-bd2d-435ebc364bc0
@@ -83,15 +107,16 @@ function runGameSF()
 	sf = runengine("stockfish")
 	setoption(sf, "Hash", 256);
 	setoption(sf, "UCI_LimitStrength", true)
-	setoption(sf, "UCI_Elo", 1500)
-    while !isterminal(g)
+	setoption(sf, "UCI_Elo", 1400)
+    while true
 		@info board(g)
-		move=minMax(board(g), true, 4, -Inf, Inf)
 		if isterminal(g) break end
+		move=nextMove(board(g), 4)
 		domove!(g, move);
-		
-		setboard(sf, g)
+
+		@info board(g)
 		if isterminal(g) break end
+		setboard(sf, g)
 		domove!(g, search(sf, "go depth 12").bestmove);		
 	end
 	@info g
@@ -482,7 +507,9 @@ version = "5.15.0+0"
 # ╠═b9fc60d4-3fdc-11f1-ac5b-4d732f649e8c
 # ╠═bc6a4cac-1560-4bc0-b778-ca6daf7da63d
 # ╠═c113a475-d645-4273-8866-eddd1a7b0b1d
+# ╠═940bb174-2ab3-463a-b97e-495cfe668ddc
 # ╠═98995b6a-cc8e-4183-97ad-981bc62270ee
+# ╠═475b3acf-e9b9-401c-a1db-0cf2e7089cc1
 # ╠═2001e23a-2e63-4cc1-bd2d-435ebc364bc0
 # ╠═c0ffee54-8cca-47f1-aa26-ac4a7e21d2bf
 # ╠═64cba1e4-9c61-4181-a64a-79243bb07efc
