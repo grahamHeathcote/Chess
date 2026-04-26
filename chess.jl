@@ -40,10 +40,24 @@ end
 # ╔═╡ 940bb174-2ab3-463a-b97e-495cfe668ddc
 function orderMoves(b, moves, tt)
 	bs = fill(b, moves.count)
-	new_boards = fen.(domove.(bs, moves))
-	if !all(haskey.(Ref(tt), new_boards)) return moves end
-	sort!(new_boards, by=new_boards -> getindex.(Ref(tt), new_boards), rev=true)
+	nbs = fen.(domove.(bs, moves))
+	if !all(haskey.(Ref(tt), nbs)) return moves end
+	p = sortperm(nbs, by=nbs -> getindex.(Ref(tt), nbs), rev=true)
+	# @info moves[p]
+	moves[p]
 end
+
+# ╔═╡ e05442cd-8e98-4ca0-8249-7a7015fb0344
+# begin
+# 	s = startboard()
+# 	ms = moves(s)
+# 	tt = Dict{String, Float32}()
+# 	for m in ms
+# 		b = domove(s, m)
+# 		tt[fen(b)] = Shannon(b)
+# 	end
+# 	orderMoves(s, ms, tt)
+# end
 
 # ╔═╡ 98995b6a-cc8e-4183-97ad-981bc62270ee
 function minMax(b, root, depth, α, β, tt)
@@ -58,8 +72,11 @@ function minMax(b, root, depth, α, β, tt)
 				bestVal = val
 				if root bestMove = move end
 			end
-			α[] = min(α[], val)
-			if β[] < α[] break end
+			α = min(α, val)
+			if β < α
+				@info "b<a 1"
+				break
+			end
 		end
 	else
 		bestVal = Inf
@@ -69,19 +86,22 @@ function minMax(b, root, depth, α, β, tt)
 				bestVal = val
 				if root bestMove = move end
 			end
-			β[] = min(β[], val)
-			if β[] < α[] break end
+			β = min(β, val)
+			if β < α
+				@info "b<a 2"
+				break
+			end
 		end
 	end
-	# tt[fen(b)] = bestVal
+	tt[fen(b)] = bestVal
 	if root return bestMove end
 	return bestVal
 end
 
 # ╔═╡ 475b3acf-e9b9-401c-a1db-0cf2e7089cc1
 function nextMove(b, depth)
-	α = Ref(-Inf)
-	β = Ref(Inf)
+	α = -Inf
+	β = Inf
 	tt = Dict{String, Float32}()
 	bestMove = missing
 	for i in 1:depth
@@ -508,6 +528,7 @@ version = "5.15.0+0"
 # ╠═bc6a4cac-1560-4bc0-b778-ca6daf7da63d
 # ╠═c113a475-d645-4273-8866-eddd1a7b0b1d
 # ╠═940bb174-2ab3-463a-b97e-495cfe668ddc
+# ╠═e05442cd-8e98-4ca0-8249-7a7015fb0344
 # ╠═98995b6a-cc8e-4183-97ad-981bc62270ee
 # ╠═475b3acf-e9b9-401c-a1db-0cf2e7089cc1
 # ╠═2001e23a-2e63-4cc1-bd2d-435ebc364bc0
