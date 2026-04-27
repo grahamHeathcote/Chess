@@ -17,7 +17,7 @@ function Shannon(b :: Board) :: Float32
 	s = 9 * (squarecount(pieces(b, PIECE_WQ)) - squarecount(pieces(b, PIECE_BQ)))
 	s += 5 * (squarecount(pieces(b, PIECE_WR)) - squarecount(pieces(b, PIECE_BR)))
 	s += 3 * (squarecount(pieces(b, PIECE_WB)) - squarecount(pieces(b, PIECE_BB)))
-	s += 3 * (squarecount(pieces(b, PIECE_WK)) - squarecount(pieces(b, PIECE_BK)))
+	s += 3 * (squarecount(pieces(b, PIECE_WN)) - squarecount(pieces(b, PIECE_BN)))
 	s += 1 * (squarecount(pieces(b, PIECE_WP)) - squarecount(pieces(b, PIECE_BP)))
 	if sidetomove(b) == WHITE
 		# Can only be checkmate if MY move, i.e I lost.
@@ -35,16 +35,8 @@ function Shannon(b :: Board) :: Float32
 	return s
 end
 
-# ╔═╡ 940bb174-2ab3-463a-b97e-495cfe668ddc
-function orderMoves(b, moves, tt)
-	bs = fill(b, moves.count)
-	nbs = fen.(domove.(bs, moves))
-	if !all(haskey.(Ref(tt), nbs)) return moves end
-	moves[sortperm(nbs, by=nbs -> getindex.(Ref(tt), nbs), rev=true)]
-end
-
 # ╔═╡ a46fe97b-6068-47f8-8c13-e546cb2f5c6f
-function orderMoves!(b, moves, tt)
+function orderMoves(b, moves, tt)
 	allInTable = false
 	vals = Vector{Float32}(undef, moves.count)
 	for i in 1:moves.count
@@ -61,7 +53,7 @@ end
 function minMax(b, root, depth, α, β, tt)
 	if root bestMove = missing end
 	if depth == 0 || ischeckmate(b) return Shannon(b) end
-	orderedMoves = orderMoves!(b, moves(b), tt)
+	orderedMoves = orderMoves(b, moves(b), tt)
 	if sidetomove(b) == WHITE
 		bestVal = -Inf
 		for move in orderedMoves
@@ -121,7 +113,7 @@ function runGameSF()
 	sf = runengine("stockfish")
 	setoption(sf, "Hash", 256);
 	setoption(sf, "UCI_LimitStrength", true)
-	setoption(sf, "UCI_Elo", 1500)
+	setoption(sf, "UCI_Elo", 1900)
     while true
 		@info board(g)
 		if isterminal(g) break end
@@ -152,7 +144,7 @@ Chess = "~0.7.5"
 PLUTO_MANIFEST_TOML_CONTENTS = """
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.12.5"
+julia_version = "1.12.6"
 manifest_format = "2.0"
 project_hash = "eb77324bf3169905617ed47c8b269f8fa8cf7df1"
 
@@ -521,7 +513,6 @@ version = "5.15.0+0"
 # ╠═b9fc60d4-3fdc-11f1-ac5b-4d732f649e8c
 # ╠═bc6a4cac-1560-4bc0-b778-ca6daf7da63d
 # ╠═c113a475-d645-4273-8866-eddd1a7b0b1d
-# ╠═940bb174-2ab3-463a-b97e-495cfe668ddc
 # ╠═a46fe97b-6068-47f8-8c13-e546cb2f5c6f
 # ╠═98995b6a-cc8e-4183-97ad-981bc62270ee
 # ╠═475b3acf-e9b9-401c-a1db-0cf2e7089cc1
