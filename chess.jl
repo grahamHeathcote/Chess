@@ -47,7 +47,7 @@ function minMax(b, root, depth, a, β)
 				bestVal = val
 				if root bestMove = move end
 			end
-			a = min(a, val)
+			a = max(a, val)
 			if β < a
 				@info "prune"
 				break
