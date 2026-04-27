@@ -40,28 +40,40 @@ function orderMoves(b, moves, tt)
 	bs = fill(b, moves.count)
 	nbs = fen.(domove.(bs, moves))
 	if !all(haskey.(Ref(tt), nbs)) return moves end
-	p = sortperm(nbs, by=nbs -> getindex.(Ref(tt), nbs), rev=true)
-	# @info moves[p]
-	moves[p]
+	moves[sortperm(nbs, by=nbs -> getindex.(Ref(tt), nbs), rev=true)]
+end
+
+# ╔═╡ a46fe97b-6068-47f8-8c13-e546cb2f5c6f
+function orderMoves!(b, moves, tt)
+	allInTable = false
+	vals = Vector{Float32}(undef, moves.count)
+	for i in 1:moves.count
+		u = domove!(b, moves[i])
+		bs = fen(b)
+		undomove!(b, u)
+		if !haskey(tt, bs) return moves end
+		vals[i] = getindex(tt, bs)
+	end
+	moves[sortperm(vals, rev=true)]
 end
 
 # ╔═╡ e05442cd-8e98-4ca0-8249-7a7015fb0344
-# begin
-# 	s = startboard()
-# 	ms = moves(s)
-# 	tt = Dict{String, Float32}()
-# 	for m in ms
-# 		b = domove(s, m)
-# 		tt[fen(b)] = Shannon(b)
-# 	end
-# 	orderMoves(s, ms, tt)
-# end
+begin
+	s = startboard()
+	ms = moves(s)
+	tt = Dict{String, Float32}()
+	for m in ms
+		b = domove(s, m)
+		tt[fen(b)] = Shannon(b)
+	end
+	orderMoves(s, ms, tt)
+end
 
 # ╔═╡ 98995b6a-cc8e-4183-97ad-981bc62270ee
 function minMax(b, root, depth, α, β, tt)
 	if root bestMove = missing end
 	if depth == 0 || ischeckmate(b) return Shannon(b) end
-	orderedMoves = orderMoves(b, moves(b), tt)
+	orderedMoves = orderMoves!(b, moves(b), tt)
 	if sidetomove(b) == WHITE
 		bestVal = -Inf
 		for move in orderedMoves
@@ -121,7 +133,7 @@ function runGameSF()
 	sf = runengine("stockfish")
 	setoption(sf, "Hash", 256);
 	setoption(sf, "UCI_LimitStrength", true)
-	setoption(sf, "UCI_Elo", 1600)
+	setoption(sf, "UCI_Elo", 1500)
     while true
 		@info board(g)
 		if isterminal(g) break end
@@ -522,6 +534,7 @@ version = "5.15.0+0"
 # ╠═bc6a4cac-1560-4bc0-b778-ca6daf7da63d
 # ╠═c113a475-d645-4273-8866-eddd1a7b0b1d
 # ╠═940bb174-2ab3-463a-b97e-495cfe668ddc
+# ╠═a46fe97b-6068-47f8-8c13-e546cb2f5c6f
 # ╠═e05442cd-8e98-4ca0-8249-7a7015fb0344
 # ╠═98995b6a-cc8e-4183-97ad-981bc62270ee
 # ╠═475b3acf-e9b9-401c-a1db-0cf2e7089cc1
