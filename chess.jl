@@ -48,7 +48,10 @@ function minMax(b, root, depth, a, β)
 				if root bestMove = move end
 			end
 			a = min(a, val)
-			if β < a break end
+			if β < a
+				@info "prune"
+				break
+			end
 		end
 	else
 		bestVal = Inf
@@ -59,7 +62,10 @@ function minMax(b, root, depth, a, β)
 				if root bestMove = move end
 			end
 			β = min(β, val)
-			if β < a break end
+			if β < a
+				@info "prune"
+				break
+			end
 		end
 	end
 	if root return bestMove end
@@ -83,7 +89,7 @@ function runGameSF()
 	sf = runengine("stockfish")
 	setoption(sf, "Hash", 256);
 	setoption(sf, "UCI_LimitStrength", true)
-	setoption(sf, "UCI_Elo", 1500)
+	setoption(sf, "UCI_Elo", 1400)
     while !isterminal(g)
 		@info board(g)
 		move=minMax(board(g), true, 4, -Inf, Inf)
