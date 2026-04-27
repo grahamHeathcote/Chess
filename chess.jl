@@ -57,18 +57,6 @@ function orderMoves!(b, moves, tt)
 	moves[sortperm(vals, rev=true)]
 end
 
-# ╔═╡ e05442cd-8e98-4ca0-8249-7a7015fb0344
-begin
-	s = startboard()
-	ms = moves(s)
-	tt = Dict{String, Float32}()
-	for m in ms
-		b = domove(s, m)
-		tt[fen(b)] = Shannon(b)
-	end
-	orderMoves(s, ms, tt)
-end
-
 # ╔═╡ 98995b6a-cc8e-4183-97ad-981bc62270ee
 function minMax(b, root, depth, α, β, tt)
 	if root bestMove = missing end
@@ -535,7 +523,6 @@ version = "5.15.0+0"
 # ╠═c113a475-d645-4273-8866-eddd1a7b0b1d
 # ╠═940bb174-2ab3-463a-b97e-495cfe668ddc
 # ╠═a46fe97b-6068-47f8-8c13-e546cb2f5c6f
-# ╠═e05442cd-8e98-4ca0-8249-7a7015fb0344
 # ╠═98995b6a-cc8e-4183-97ad-981bc62270ee
 # ╠═475b3acf-e9b9-401c-a1db-0cf2e7089cc1
 # ╠═2001e23a-2e63-4cc1-bd2d-435ebc364bc0
