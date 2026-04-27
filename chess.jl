@@ -28,8 +28,6 @@ function Shannon(b :: Board) :: Float32
 	end 
 
 	if isstalemate(b) return 0 end	
-	# This is wrong maybe
-	# If i just made a move then punish if he has many possible moves
 	s += .1 * (movecount(b))
 	info = donullmove!(b)
 	s -= .1 * (movecount(b))
@@ -72,10 +70,8 @@ function minMax(b, root, depth, α, β, tt)
 				bestVal = val
 				if root bestMove = move end
 			end
-			α = min(α, val)
-			if β < α
-				@info "b<a 1"
-				break
+			α = max(α, val)
+			if β < α break
 			end
 		end
 	else
@@ -87,9 +83,7 @@ function minMax(b, root, depth, α, β, tt)
 				if root bestMove = move end
 			end
 			β = min(β, val)
-			if β < α
-				@info "b<a 2"
-				break
+			if β < α break
 			end
 		end
 	end
@@ -115,7 +109,7 @@ function runGameInternal()
     g = SimpleGame()
     while !isterminal(g)
 		@info board(g)
-		move=minMax(board(g), true, 4, -Inf, Inf)
+		move=minMax(board(g), true, 6, -Inf, Inf)
 		domove!(g, move);
 	end
 	@info g
@@ -127,11 +121,11 @@ function runGameSF()
 	sf = runengine("stockfish")
 	setoption(sf, "Hash", 256);
 	setoption(sf, "UCI_LimitStrength", true)
-	setoption(sf, "UCI_Elo", 1400)
+	setoption(sf, "UCI_Elo", 1600)
     while true
 		@info board(g)
 		if isterminal(g) break end
-		move=nextMove(board(g), 4)
+		move=nextMove(board(g), 6)
 		domove!(g, move);
 
 		@info board(g)
