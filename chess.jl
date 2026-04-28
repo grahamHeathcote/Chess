@@ -4,36 +4,39 @@
 using Markdown
 using InteractiveUtils
 
+# ╔═╡ e9044094-f415-4080-94bc-5b90deecafa9
+using HyperTuning
+
 # ╔═╡ b9fc60d4-3fdc-11f1-ac5b-4d732f649e8c
 using Chess
 
 # ╔═╡ bc6a4cac-1560-4bc0-b778-ca6daf7da63d
 using Chess.UCI
 
-# ╔═╡ c113a475-d645-4273-8866-eddd1a7b0b1d
-function Shannon(b :: Board) :: Float32
+# ╔═╡ ebb7640a-9409-4721-b7bf-692c9a4a0177
+function Shannon(b :: Board, cv, mv, av, qv, rv, bv, nv, pv) :: Float32
 	toMove = sidetomove(b)
 	if isdraw(b) return 0f0 end	
 	s=0f0
 	if ischeck(b) == true
-		s-= .5f0
+		s-= cv
 		if ischeckmate(b) == true s -= 200f0 end
 	else
-		s += .05f0 * (movecount(b))
+		s += mv * (movecount(b))
 		info = donullmove!(b)
-		s -= .05f0 * (movecount(b))
+		s -= mv * (movecount(b))
 		undomove!(b, info)
 	end
 	attacks = SS_EMPTY
 	for p ∈ pieces(b, toMove) attacks = attacks ∪ attacksfrom(b, p) end
-	s += .1f0 * squarecount(attacks ∩ pieces(b, -toMove))
+	s += av * squarecount(attacks ∩ pieces(b, -toMove))
 	if toMove == BLACK s=-s end
 	
-	s += 9f0 * (squarecount(pieces(b, PIECE_WQ)) - squarecount(pieces(b, PIECE_BQ)))
-	s += 5f0 * (squarecount(pieces(b, PIECE_WR)) - squarecount(pieces(b, PIECE_BR)))
-	s += 3f0 * (squarecount(pieces(b, PIECE_WB)) - squarecount(pieces(b, PIECE_BB)))
-	s += 3f0 * (squarecount(pieces(b, PIECE_WN)) - squarecount(pieces(b, PIECE_BN)))
-	s += 1f0 * (squarecount(pieces(b, PIECE_WP)) - squarecount(pieces(b, PIECE_BP)))
+	s += qv * (squarecount(pieces(b, PIECE_WQ)) - squarecount(pieces(b, PIECE_BQ)))
+	s += rv * (squarecount(pieces(b, PIECE_WR)) - squarecount(pieces(b, PIECE_BR)))
+	s += bv * (squarecount(pieces(b, PIECE_WB)) - squarecount(pieces(b, PIECE_BB)))
+	s += nv * (squarecount(pieces(b, PIECE_WN)) - squarecount(pieces(b, PIECE_BN)))
+	s += pv * (squarecount(pieces(b, PIECE_WP)) - squarecount(pieces(b, PIECE_BP)))
 	s
 end
 
@@ -53,16 +56,18 @@ function orderMoves(b, moves, tt)
 	moves[sortperm(vals, rev=true)]
 end
 
-# ╔═╡ 98995b6a-cc8e-4183-97ad-981bc62270ee
-function minMax(b, root, depth, α, β, tt)
+# ╔═╡ daa5e9ea-fea5-46fd-acf0-2d9f9cd78016
+function minMax(b, root, depth, α, β, tt, cv, mv, av, qv, rv, bv, nv, pv)
 	bestMove = missing
-	if depth == 0 || isterminal(b) return Shannon(b) end
+	if depth == 0 || isterminal(b)
+		return Shannon(b, cv, mv, av, qv, rv, bv, nv, pv)
+	end
 	orderedMoves = orderMoves(b, moves(b), tt)
 	if sidetomove(b) == WHITE
 		bestVal = -Inf
 		for move in orderedMoves
 			u = domove!(b, move) 
-			val = minMax(b, false, depth-1, α, β, tt)
+			val = minMax(b, false, depth-1, α, β, tt, cv, mv, av, qv, rv, bv, nv, pv)
 			undomove!(b, u) 
 			if val > bestVal
 				bestVal = val
@@ -75,7 +80,7 @@ function minMax(b, root, depth, α, β, tt)
 		bestVal = Inf
 		for move in reverse(orderedMoves)
 			u = domove!(b, move) 
-			val = minMax(b, false, depth-1, α, β, tt)
+			val = minMax(b, false, depth-1, α, β, tt, cv, mv, av, qv, rv, bv, nv, pv)
 			undomove!(b, u) 
 			if val < bestVal
 				bestVal = val
@@ -87,51 +92,80 @@ function minMax(b, root, depth, α, β, tt)
 	end
 	tt[fen(b)] = bestVal
 	if root return bestMove end
-	return bestVal
+	bestVal
 end
 
 # ╔═╡ 475b3acf-e9b9-401c-a1db-0cf2e7089cc1
-function nextMove(b, depth)
+function nextMove(b, depth,  cv, mv, av, qv, rv, bv, nv, pv)
 	tt = Dict{String, Float32}()
 	bestMove = missing
-	for i in 1:depth bestMove = minMax(b, true, i, -Inf, Inf, tt) end
+	for i in 1:depth
+		bestMove = minMax(b, true, i, -Inf, Inf, tt,  cv, mv, av, qv, rv, bv, nv, pv)
+	end
 	bestMove
 end
 
 # ╔═╡ c0ffee54-8cca-47f1-aa26-ac4a7e21d2bf
-function runGameSF()
+function runGameSF( cv, mv, av, qv, rv, bv, nv, pv)
     g = SimpleGame()
 	sf = runengine("stockfish")
 	setoption(sf, "Hash", 256);
 	setoption(sf, "UCI_LimitStrength", true)
-	setoption(sf, "UCI_Elo", 2000)
+	setoption(sf, "UCI_Elo", 1400)
     while true
-		@info board(g)
 		if isterminal(g) break end
 		before = time();
-		move=nextMove(board(g), 6)
-		@info time() - before;
+		move=nextMove(board(g), 4, cv, mv, av, qv, rv, bv, nv, pv)
 		domove!(g, move);
 
-		@info board(g)
 		if isterminal(g) break end
 		setboard(sf, g)
 		domove!(g, search(sf, "go depth 12").bestmove);		
 	end
-	@info g
-	g
+	if isdraw(g) return 0.0 end
+	if sidetomove(board(g)) == BLACK return 1.0 end
+	-1.0
 end
 
-# ╔═╡ 64cba1e4-9c61-4181-a64a-79243bb07efc
-g = runGameSF()
+# ╔═╡ e7926a1d-6518-4690-9438-daf1df3ceaad
+function runGames(cv, mv, av, qv, rv, bv, nv, pv)
+	score = 0
+	for i in 1:8 score += runGameSF(cv, mv, av, qv, rv, bv, nv, pv) end
+	score
+end
+
+# ╔═╡ 4cc075ce-57ce-44e9-99c6-1fb66bcdc586
+function learnParams(trial)
+	@unpack cv, mv, av, qv, rv, bv, nv, pv = trial
+	@info trial
+	return runGames(cv, mv, av, qv, rv, bv, nv, pv)
+end
+
+# ╔═╡ 6714963e-c077-47a3-b05a-32227407f611
+scenario = Scenario(
+    cv = (0.0..1.0),
+    mv = (0.0..0.25),
+    av = (0.0..0.5),
+    qv = (6.0..12.0),
+    rv = (2.0..8.0),
+    bv = (1.0..6.0),
+    nv = (1.0..6.0),
+    pv = (0.2..2.0),
+    max_trials=100
+)
+
+# ╔═╡ 782b2f40-c1a0-4681-8c34-1043673cdf49
+HyperTuning.optimize(learnParams, scenario)
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
 Chess = "717200cc-f167-4fd3-b4bf-b5e480529844"
+HyperTuning = "ddfa78db-9111-4329-a6bd-d4ed85ceb229"
 
 [compat]
 Chess = "~0.7.5"
+HyperTuning = "~0.1.2"
 """
 
 # ╔═╡ 00000000-0000-0000-0000-000000000002
@@ -140,7 +174,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.12.6"
 manifest_format = "2.0"
-project_hash = "eb77324bf3169905617ed47c8b269f8fa8cf7df1"
+project_hash = "af9eec03e23fc890dd1b8a1233bb1c1f1fdca6d8"
 
 [[deps.Artifacts]]
 uuid = "56f22d72-fd6d-98f1-02f0-08ddc0907c33"
@@ -155,6 +189,11 @@ deps = ["Artifacts", "Crayons", "Dates", "DefaultApplication", "Formatting", "Hi
 git-tree-sha1 = "8eb910e96ca126046b5ab83b417297de669581b3"
 uuid = "717200cc-f167-4fd3-b4bf-b5e480529844"
 version = "0.7.5"
+
+[[deps.Combinatorics]]
+git-tree-sha1 = "c761b00e7755700f9cdf5b02039939d1359330e1"
+uuid = "861a8166-3701-5b0c-9a16-15d98fcdc6aa"
+version = "1.1.0"
 
 [[deps.Compat]]
 deps = ["TOML", "UUIDs"]
@@ -208,6 +247,11 @@ git-tree-sha1 = "c0dfa5a35710a193d83f03124356eef3386688fc"
 uuid = "3f0dd361-4fe0-5fc6-8523-80b14ec94d85"
 version = "1.1.0"
 
+[[deps.Distributed]]
+deps = ["Random", "Serialization", "Sockets"]
+uuid = "8ba89e20-285c-5b6f-9357-94700520ee1b"
+version = "1.11.0"
+
 [[deps.DocStringExtensions]]
 git-tree-sha1 = "7442a5dfe1ebb773c29cc2962a8980f47221d76c"
 uuid = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
@@ -224,6 +268,12 @@ deps = ["MacroTools", "Test"]
 git-tree-sha1 = "6187bb2d5fcbb2007c39e7ac53308b0d371124bd"
 uuid = "9fb69e20-1954-56bb-a84f-559cc56a8ff7"
 version = "0.2.2"
+
+[[deps.HyperTuning]]
+deps = ["Distributed", "PrettyTables", "Printf", "Random", "Reexport", "SearchSpaces", "Statistics", "UnPack"]
+git-tree-sha1 = "228a7dffe96f5bcd1dcac253c2b3c3efdced0a0d"
+uuid = "ddfa78db-9111-4329-a6bd-d4ed85ceb229"
+version = "0.1.2"
 
 [[deps.HypertextLiteral]]
 deps = ["Tricks"]
@@ -275,6 +325,11 @@ version = "0.21.4"
 deps = ["StyledStrings"]
 uuid = "ac6e5ff7-fb65-4e79-a425-ec3bc9c03011"
 version = "1.12.0"
+
+[[deps.LaTeXStrings]]
+git-tree-sha1 = "dda21b8cbd6a6c40d9d02a73230f9d70fed6918c"
+uuid = "b964fa9f-0449-5b57-a5c2-d3ea65f4040f"
+version = "1.4.0"
 
 [[deps.Libdl]]
 uuid = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
@@ -353,6 +408,12 @@ git-tree-sha1 = "8b770b60760d4451834fe79dd483e318eee709c4"
 uuid = "21216c6a-2e73-6563-6e65-726566657250"
 version = "1.5.2"
 
+[[deps.PrettyTables]]
+deps = ["Crayons", "LaTeXStrings", "Markdown", "PrecompileTools", "Printf", "Reexport", "StringManipulation", "Tables"]
+git-tree-sha1 = "1101cd475833706e4d0e7b122218257178f48f34"
+uuid = "08abe8d2-0d0c-5749-adfa-8a2ac140af0d"
+version = "2.4.0"
+
 [[deps.Printf]]
 deps = ["Unicode"]
 uuid = "de0858da-6303-5e67-8744-51eddeeeb8d7"
@@ -362,6 +423,11 @@ version = "1.11.0"
 deps = ["SHA"]
 uuid = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 version = "1.11.0"
+
+[[deps.Reexport]]
+git-tree-sha1 = "45e428421666073eab6f2da5c9d310d99bb12f9b"
+uuid = "189a3867-3050-52da-a836-e630ba90ab69"
+version = "1.2.2"
 
 [[deps.SHA]]
 uuid = "ea8e919c-243c-51af-8825-aaa63cd721ce"
@@ -379,8 +445,18 @@ git-tree-sha1 = "0b5f220f90642566b65ba86549d1ee4118ab2579"
 uuid = "76ed43ae-9a5d-5a62-8c75-30186b810ce8"
 version = "3.51.2+0"
 
+[[deps.SearchSpaces]]
+deps = ["Combinatorics", "Random"]
+git-tree-sha1 = "6978155ac93d84bf6b5c9d85eeb518e6bb0a9db5"
+uuid = "eb7571c6-2196-4f03-99b8-52a5a35b3163"
+version = "0.1.3"
+
 [[deps.Serialization]]
 uuid = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
+version = "1.11.0"
+
+[[deps.Sockets]]
+uuid = "6462fe0b-24de-5631-8697-dd941f90decc"
 version = "1.11.0"
 
 [[deps.SortingAlgorithms]]
@@ -435,6 +511,12 @@ git-tree-sha1 = "d1bf48bfcc554a3761a133fe3a9bb01488e06916"
 uuid = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 version = "0.33.21"
 
+[[deps.StringManipulation]]
+deps = ["PrecompileTools"]
+git-tree-sha1 = "d05693d339e37d6ab134c5ab53c29fce5ee5d7d5"
+uuid = "892a3eda-7b42-436c-8928-eab12a02cf0e"
+version = "0.4.4"
+
 [[deps.StyledStrings]]
 uuid = "f489334b-da3d-4c2e-b8f0-e476e12c162b"
 version = "1.11.0"
@@ -476,6 +558,11 @@ deps = ["Random", "SHA"]
 uuid = "cf7118a7-6976-5b1a-9a39-7adc72f591a4"
 version = "1.11.0"
 
+[[deps.UnPack]]
+git-tree-sha1 = "387c1f73762231e86e0c9c5443ce3b4a0a9a0c2b"
+uuid = "3a884ed6-31ef-47d7-9d2a-63182c4928ed"
+version = "1.0.2"
+
 [[deps.Unicode]]
 uuid = "4ec0a83e-493e-50e2-b9ac-8f72acf5a8f5"
 version = "1.11.0"
@@ -504,13 +591,17 @@ version = "5.15.0+0"
 """
 
 # ╔═╡ Cell order:
+# ╠═e9044094-f415-4080-94bc-5b90deecafa9
 # ╠═b9fc60d4-3fdc-11f1-ac5b-4d732f649e8c
 # ╠═bc6a4cac-1560-4bc0-b778-ca6daf7da63d
-# ╠═c113a475-d645-4273-8866-eddd1a7b0b1d
+# ╠═ebb7640a-9409-4721-b7bf-692c9a4a0177
 # ╠═a46fe97b-6068-47f8-8c13-e546cb2f5c6f
-# ╠═98995b6a-cc8e-4183-97ad-981bc62270ee
+# ╠═daa5e9ea-fea5-46fd-acf0-2d9f9cd78016
 # ╠═475b3acf-e9b9-401c-a1db-0cf2e7089cc1
 # ╠═c0ffee54-8cca-47f1-aa26-ac4a7e21d2bf
-# ╠═64cba1e4-9c61-4181-a64a-79243bb07efc
+# ╠═e7926a1d-6518-4690-9438-daf1df3ceaad
+# ╠═4cc075ce-57ce-44e9-99c6-1fb66bcdc586
+# ╠═6714963e-c077-47a3-b05a-32227407f611
+# ╠═782b2f40-c1a0-4681-8c34-1043673cdf49
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
