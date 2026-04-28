@@ -11,76 +11,91 @@ using Chess
 using Chess.UCI
 
 # ╔═╡ c113a475-d645-4273-8866-eddd1a7b0b1d
-function Shannon(b :: Board)
-	# Bot evaluates this to see +/- for white given whos move is next
-	# White is + Black is -
-	s = 9 * (squarecount(pieces(b, PIECE_WQ)) - squarecount(pieces(b, PIECE_BQ)))
-	s += 5 * (squarecount(pieces(b, PIECE_WR)) - squarecount(pieces(b, PIECE_BR)))
-	s += 3 * (squarecount(pieces(b, PIECE_WB)) - squarecount(pieces(b, PIECE_BB)))
-	s += 3 * (squarecount(pieces(b, PIECE_WK)) - squarecount(pieces(b, PIECE_BK)))
-	s += 1 * (squarecount(pieces(b, PIECE_WP)) - squarecount(pieces(b, PIECE_BP)))
-	if sidetomove(b) == WHITE
-		# Can only be checkmate if MY move, i.e I lost.
-		# Thus if checkmate and I am white, then make white bad.
-		if ischeckmate(b) == true s -= 200 end
+function Shannon(b :: Board) :: Float32
+	toMove = sidetomove(b)
+	if isdraw(b) return 0f0 end	
+	s=0f0
+	if ischeck(b) == true
+		s-= .5f0
+		if ischeckmate(b) == true s -= 200f0 end
 	else
-		if ischeckmate(b) == true s += 200 end
-	end 
+		s += .05f0 * (movecount(b))
+		info = donullmove!(b)
+		s -= .05f0 * (movecount(b))
+		undomove!(b, info)
+	end
+	attacks = SS_EMPTY
+	for p ∈ pieces(b, toMove) attacks = attacks ∪ attacksfrom(b, p) end
+	s += .1f0 * squarecount(attacks ∩ pieces(b, -toMove))
+	if toMove == BLACK s=-s end
+	
+	s += 9f0 * (squarecount(pieces(b, PIECE_WQ)) - squarecount(pieces(b, PIECE_BQ)))
+	s += 5f0 * (squarecount(pieces(b, PIECE_WR)) - squarecount(pieces(b, PIECE_BR)))
+	s += 3f0 * (squarecount(pieces(b, PIECE_WB)) - squarecount(pieces(b, PIECE_BB)))
+	s += 3f0 * (squarecount(pieces(b, PIECE_WN)) - squarecount(pieces(b, PIECE_BN)))
+	s += 1f0 * (squarecount(pieces(b, PIECE_WP)) - squarecount(pieces(b, PIECE_BP)))
+	s
+end
 
-	if isstalemate(b) return 0 end	
-	s += .1 * (movecount(b))
-	info = donullmove!(b)
-	s -= .1 * (movecount(b))
-	undomove!(b, info)
-	return s
+# ╔═╡ a46fe97b-6068-47f8-8c13-e546cb2f5c6f
+function orderMoves(b, moves, tt)
+	vals = Vector{Float32}(undef, moves.count)
+	for i in 1:moves.count
+		u = domove!(b, moves[i])
+		bs = fen(b)
+		undomove!(b, u)
+		if !haskey(tt, bs)
+			oppPieces = pieces(b, -sidetomove(b))
+			return sort(moves, by = move -> in(to(move), oppPieces), rev=true)
+		end
+		vals[i] = getindex(tt, bs)
+	end
+	moves[sortperm(vals, rev=true)]
 end
 
 # ╔═╡ 98995b6a-cc8e-4183-97ad-981bc62270ee
-function minMax(b, root, depth, a, β)
-	if root bestMove = missing end
-	if depth == 0 || ischeckmate(b) return Shannon(b) end
+function minMax(b, root, depth, α, β, tt)
+	bestMove = missing
+	if depth == 0 || isterminal(b) return Shannon(b) end
+	orderedMoves = orderMoves(b, moves(b), tt)
 	if sidetomove(b) == WHITE
 		bestVal = -Inf
-		for move in moves(b)
-			val = minMax(domove(b, move), false, depth-1, a, β)
+		for move in orderedMoves
+			u = domove!(b, move) 
+			val = minMax(b, false, depth-1, α, β, tt)
+			undomove!(b, u) 
 			if val > bestVal
 				bestVal = val
 				if root bestMove = move end
 			end
-			a = max(a, val)
-			if β < a
-				@info "prune"
-				break
-			end
+			α = max(α, val)
+			if β < α break end
 		end
 	else
 		bestVal = Inf
-		for move in moves(b)
-			val = minMax(domove(b, move), false, depth-1, a, β)
+		for move in reverse(orderedMoves)
+			u = domove!(b, move) 
+			val = minMax(b, false, depth-1, α, β, tt)
+			undomove!(b, u) 
 			if val < bestVal
 				bestVal = val
 				if root bestMove = move end
 			end
 			β = min(β, val)
-			if β < a
-				@info "prune"
-				break
-			end
+			if β < α break end
 		end
 	end
+	tt[fen(b)] = bestVal
 	if root return bestMove end
 	return bestVal
 end
 
-# ╔═╡ 2001e23a-2e63-4cc1-bd2d-435ebc364bc0
-function runGameInternal()
-    g = SimpleGame()
-    while !isterminal(g)
-		@info board(g)
-		move=minMax(board(g), true, 4, -Inf, Inf)
-		domove!(g, move);
-	end
-	@info g
+# ╔═╡ 475b3acf-e9b9-401c-a1db-0cf2e7089cc1
+function nextMove(b, depth)
+	tt = Dict{String, Float32}()
+	bestMove = missing
+	for i in 1:depth bestMove = minMax(b, true, i, -Inf, Inf, tt) end
+	bestMove
 end
 
 # ╔═╡ c0ffee54-8cca-47f1-aa26-ac4a7e21d2bf
@@ -89,22 +104,26 @@ function runGameSF()
 	sf = runengine("stockfish")
 	setoption(sf, "Hash", 256);
 	setoption(sf, "UCI_LimitStrength", true)
-	setoption(sf, "UCI_Elo", 1400)
-    while !isterminal(g)
+	setoption(sf, "UCI_Elo", 2000)
+    while true
 		@info board(g)
-		move=minMax(board(g), true, 4, -Inf, Inf)
 		if isterminal(g) break end
+		before = time();
+		move=nextMove(board(g), 6)
+		@info time() - before;
 		domove!(g, move);
-		
-		setboard(sf, g)
+
+		@info board(g)
 		if isterminal(g) break end
+		setboard(sf, g)
 		domove!(g, search(sf, "go depth 12").bestmove);		
 	end
 	@info g
+	g
 end
 
 # ╔═╡ 64cba1e4-9c61-4181-a64a-79243bb07efc
-runGameSF()
+g = runGameSF()
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -119,7 +138,7 @@ Chess = "~0.7.5"
 PLUTO_MANIFEST_TOML_CONTENTS = """
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.12.5"
+julia_version = "1.12.6"
 manifest_format = "2.0"
 project_hash = "eb77324bf3169905617ed47c8b269f8fa8cf7df1"
 
@@ -488,8 +507,9 @@ version = "5.15.0+0"
 # ╠═b9fc60d4-3fdc-11f1-ac5b-4d732f649e8c
 # ╠═bc6a4cac-1560-4bc0-b778-ca6daf7da63d
 # ╠═c113a475-d645-4273-8866-eddd1a7b0b1d
+# ╠═a46fe97b-6068-47f8-8c13-e546cb2f5c6f
 # ╠═98995b6a-cc8e-4183-97ad-981bc62270ee
-# ╠═2001e23a-2e63-4cc1-bd2d-435ebc364bc0
+# ╠═475b3acf-e9b9-401c-a1db-0cf2e7089cc1
 # ╠═c0ffee54-8cca-47f1-aa26-ac4a7e21d2bf
 # ╠═64cba1e4-9c61-4181-a64a-79243bb07efc
 # ╟─00000000-0000-0000-0000-000000000001
