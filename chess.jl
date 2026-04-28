@@ -45,6 +45,12 @@ function Shannon(b :: Board) :: Float32
 	return s
 end
 
+# ╔═╡ f01d4ff2-65e9-4158-8cff-baeda44672ba
+function orderNewMoves(b, moves)
+    oppPieces = pieces(b, -sidetomove(b))
+    sort(moves, by = move -> in(to(move), oppPieces), rev=true)
+end
+
 # ╔═╡ a46fe97b-6068-47f8-8c13-e546cb2f5c6f
 function orderMoves(b, moves, tt)
 	allInTable = false
@@ -53,7 +59,7 @@ function orderMoves(b, moves, tt)
 		u = domove!(b, moves[i])
 		bs = fen(b)
 		undomove!(b, u)
-		if !haskey(tt, bs) return moves end
+		if !haskey(tt, bs) return orderNewMoves(b, moves) end
 		vals[i] = getindex(tt, bs)
 	end
 	moves[sortperm(vals, rev=true)]
@@ -67,7 +73,9 @@ function minMax(b, root, depth, α, β, tt)
 	if sidetomove(b) == WHITE
 		bestVal = -Inf
 		for move in orderedMoves
-			val = minMax(domove(b, move), false, depth-1, α, β, tt)
+			u = domove!(b, move) 
+			val = minMax(b, false, depth-1, α, β, tt)
+			undomove!(b, u) 
 			if val > bestVal
 				bestVal = val
 				if root bestMove = move end
@@ -79,7 +87,9 @@ function minMax(b, root, depth, α, β, tt)
 	else
 		bestVal = Inf
 		for move in reverse(orderedMoves)
-			val = minMax(domove(b, move), false, depth-1, α, β, tt)
+			u = domove!(b, move) 
+			val = minMax(b, false, depth-1, α, β, tt)
+			undomove!(b, u) 
 			if val < bestVal
 				bestVal = val
 				if root bestMove = move end
@@ -127,7 +137,9 @@ function runGameSF()
     while true
 		@info board(g)
 		if isterminal(g) break end
+		before = time();
 		move=nextMove(board(g), 6)
+		@info time() - before;
 		domove!(g, move);
 
 		@info board(g)
@@ -523,6 +535,7 @@ version = "5.15.0+0"
 # ╠═b9fc60d4-3fdc-11f1-ac5b-4d732f649e8c
 # ╠═bc6a4cac-1560-4bc0-b778-ca6daf7da63d
 # ╠═c113a475-d645-4273-8866-eddd1a7b0b1d
+# ╠═f01d4ff2-65e9-4158-8cff-baeda44672ba
 # ╠═a46fe97b-6068-47f8-8c13-e546cb2f5c6f
 # ╠═98995b6a-cc8e-4183-97ad-981bc62270ee
 # ╠═475b3acf-e9b9-401c-a1db-0cf2e7089cc1
