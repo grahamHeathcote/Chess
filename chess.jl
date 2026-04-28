@@ -12,6 +12,7 @@ using Chess.UCI
 
 # ╔═╡ c113a475-d645-4273-8866-eddd1a7b0b1d
 function Shannon(b :: Board) :: Float32
+	toMove = sidetomove(b)
 	# Bot evaluates this to see +/- for white given whos move is next
 	# White is + Black is -
 	s = 9 * (squarecount(pieces(b, PIECE_WQ)) - squarecount(pieces(b, PIECE_BQ)))
@@ -19,18 +20,27 @@ function Shannon(b :: Board) :: Float32
 	s += 3 * (squarecount(pieces(b, PIECE_WB)) - squarecount(pieces(b, PIECE_BB)))
 	s += 3 * (squarecount(pieces(b, PIECE_WN)) - squarecount(pieces(b, PIECE_BN)))
 	s += 1 * (squarecount(pieces(b, PIECE_WP)) - squarecount(pieces(b, PIECE_BP)))
-	if sidetomove(b) == WHITE
+	if toMove == WHITE
 		# Can only be checkmate if MY move, i.e I lost.
 		# Thus if checkmate and I am white, then make white bad.
 		if ischeckmate(b) == true s -= 200 end
+		if ischeck(b) == true s-= .5 end
 	else
 		if ischeckmate(b) == true s += 200 end
+		if ischeck(b) == true s += .5 end
 	end 
 
-	if isstalemate(b) return 0 end	
-	s += .1 * (movecount(b))
+	attacks = SS_EMPTY
+	for p ∈ pieces(b, toMove)
+		attacks = attacks ∪ attacksfrom(b, p)
+	end
+	s += .15 * squarecount(attacks ∩ pieces(b, -toMove))
+			
+
+	if isdraw(b) return 0 end	
+	s += .05 * (movecount(b))
 	info = donullmove!(b)
-	s -= .1 * (movecount(b))
+	s -= .05 * (movecount(b))
 	undomove!(b, info)
 	return s
 end
@@ -52,7 +62,7 @@ end
 # ╔═╡ 98995b6a-cc8e-4183-97ad-981bc62270ee
 function minMax(b, root, depth, α, β, tt)
 	if root bestMove = missing end
-	if depth == 0 || ischeckmate(b) return Shannon(b) end
+	if depth == 0 || isterminal(b) return Shannon(b) end
 	orderedMoves = orderMoves(b, moves(b), tt)
 	if sidetomove(b) == WHITE
 		bestVal = -Inf
@@ -86,11 +96,11 @@ end
 
 # ╔═╡ 475b3acf-e9b9-401c-a1db-0cf2e7089cc1
 function nextMove(b, depth)
-	α = -Inf
-	β = Inf
 	tt = Dict{String, Float32}()
 	bestMove = missing
 	for i in 1:depth
+		α = -Inf
+		β = Inf
 		bestMove = minMax(b, true, i, α, β, tt)
 	end
 	return bestMove
@@ -113,7 +123,7 @@ function runGameSF()
 	sf = runengine("stockfish")
 	setoption(sf, "Hash", 256);
 	setoption(sf, "UCI_LimitStrength", true)
-	setoption(sf, "UCI_Elo", 1900)
+	setoption(sf, "UCI_Elo", 2200)
     while true
 		@info board(g)
 		if isterminal(g) break end
