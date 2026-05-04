@@ -108,9 +108,10 @@ end
 function handle_move(req::HTTP.Request)
     body = JSON.parse(String(req.body))
     b = fromfen(body["fen"])
-    println("New board: ", b)
+    println("Board before move: ", b)
     move = nextMove(b)
     domove!(b, move)
+    println("Board after move: ", b)
     HTTP.Response(200, JSON.json(Dict("fen" => fen(b))))
 end
 
