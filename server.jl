@@ -107,8 +107,8 @@ end
 
 function handle_move(req::HTTP.Request)
     body = JSON.parse(String(req.body))
-    println("Move detected")
     b = fromfen(body["fen"])
+    println("New board: ", b)
     move = nextMove(b)
     domove!(b, move)
     HTTP.Response(200, JSON.json(Dict("fen" => fen(b))))
@@ -131,4 +131,4 @@ const ROUTER = HTTP.Router()
 HTTP.register!(ROUTER, "POST", "/api/move", handle_move)
 
 println("Server up")
-HTTP.serve(corsMiddleware(ROUTER), "127.0.0.1", 8080)
+HTTP.serve(corsMiddleware(ROUTER), "0.0.0.0", 8080)
